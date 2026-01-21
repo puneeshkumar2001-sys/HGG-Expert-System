@@ -3,15 +3,37 @@ import numpy as np
 import pandas as pd
 
 # --- HGG EXPERT CALCULATIONS ---
-def calculate_hgg(gamma, mach, duration):
-    sof = 1.0 + (gamma - 1.15) / 0.04
-    temp = 1500 + (sof * 400)
-    term1 = (2 / (gamma + 1))
-    term2 = 1 + ((gamma - 1) / 2) * (mach**2)
-    power = (gamma + 1) / (2 * (gamma - 1))
-    area_ratio = (1 / mach) * (term1 * term2)**power
-    thickness = 0.0002 * duration
-    return sof, temp, area_ratio, thickness
+def calculate_expert_metrics(gamma, mach, temp, duration, velocity=1200):
+    # 1. Acoustic Power (Sound Pressure Level)
+    # Sound increases with Velocity^8
+    db_level = 10 * np.log10(velocity**8) - 40 
+    
+    # 2. Pressure Oscillations (Stability)
+    # Higher pressure and Mach usually increase vibration risk
+    vibration_risk = (mach * 0.15) + (temp / 4000)
+    
+    # 3. Heat Flux (Thermal Load)
+    # q = h * (T_gas - T_wall) -> Simplified
+    heat_flux = (temp * 0.002) * (mach**0.8) # MW/m2
+    
+    return db_level, vibration_risk, heat_flux
+
+# --- In your Streamlit UI section, add these new displays ---
+st.divider()
+st.subheader("📊 Dynamic Expert Analysis")
+
+db, vib, q = calculate_expert_metrics(w_gamma, w_mach, tmp, w_dur)
+
+col_a, col_b, col_c = st.columns(3)
+col_a.metric("Acoustic Load", f"{db:.1f} dB")
+col_b.metric("Vibration Index", f"{vib:.2f}")
+col_c.metric("Heat Flux", f"{q:.2f} MW/m²")
+
+# Safety Warnings
+if db > 155:
+    st.error("🚨 HIGH NOISE: Structural fatigue risk for JDD.")
+if q > 5.0:
+    st.warning("⚠️ THERMAL LIMIT: Increase transpiration coolant flow immediately!")
 
 # --- UI DESIGN ---
 st.title("🚀 HGG Expert Guru")
