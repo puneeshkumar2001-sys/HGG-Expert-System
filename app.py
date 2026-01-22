@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # --- ELITE UI STYLING ---
-st.set_page_config(page_title="V-MAX Omni-Twin | Supreme Master", layout="wide")
+st.set_page_config(page_title="V-MAX Omni-Twin | Throat Erosion Master", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #0b0d10; }
@@ -14,111 +14,86 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- THE SUPREME PHYSICS ENGINE (HARDENED) ---
-def run_vmax_final_master(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth, ld_ratio, jdd_type):
-    # 1. INPUT SANITIZATION
+# --- THE SUPREME PHYSICS ENGINE (WITH EROSION) ---
+def run_vmax_final_master(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth, ld_ratio, jdd_type, throat_dia_init):
+    # Steel-Wall Guardrails
     duration = int(max(1, duration))
     p_init = float(max(1.1, p_init))
-    temp = float(max(300, temp))
-    ld_ratio = float(max(1.0, ld_ratio))
-    
     t_steps = np.arange(0, duration + 1, 1)
     
-    # 2. GAMMA-DNA MATCHING (Guarded)
+    # 1. PREDICTION: Throat Erosion (W-Cu Mixer Logic)
+    # Predicted radial erosion rate based on Temp and Pressure
+    erosion_rate_base = (temp / 3032) * (p_init / 35) * 0.022 
+    cumulative_erosion = erosion_rate_base * t_steps
+    current_throat_dia = throat_dia_init + (2 * cumulative_erosion) 
+    
+    # 2. PREDICTION: Pressure Decay (Linked to Area Growth)
+    area_ratio = (throat_dia_init**2) / (current_throat_dia**2)
+    # Combined effect of Throat expansion and Paraffin fuel regression
+    p_decay = p_init * area_ratio * np.power((np.maximum(grain_init - (0.55 * t_steps), 0.1) / grain_init), 0.15)
+    
+    # 3. PREDICTION: Gamma-DNA & Mach Number
     gamma_eff = np.clip(1.38 - (temp / 12500) + (ld_ratio * 0.004), 1.11, 1.45)
-    R_spec = 518.6 
-    
-    # 3. PROPELLANT & CHAMBER PREDICTIONS
-    reg_rate = 0.55 
-    required_web = reg_rate * duration 
-    web_remaining = np.maximum(grain_init - (reg_rate * t_steps), 0.1)
-    p_decay = p_init * np.power((web_remaining / max(0.1, grain_init)), 0.48)
-    grain_length = 15.5 * ld_ratio 
-    gox_flow = (p_init * 0.02) * (1 + (ld_ratio / 10)) 
-    
-    # 4. ACOUSTIC & VELOCITY (Crash Protection)
     g_minus_1 = max(0.001, gamma_eff - 1)
-    v_term = (2 * gamma_eff * R_spec * temp) / g_minus_1
     p_exp = g_minus_1 / gamma_eff
-    p_ratio_base = np.clip(1.05 / np.maximum(p_decay, 1.06), 0.0001, 0.999)
-    p_ratio = np.power(p_ratio_base, p_exp)
+    mach_num = np.sqrt(np.clip((2 / g_minus_1) * (np.power(p_decay / 1.01325, p_exp) - 1), 0, 10))
     
-    v_exit = np.sqrt(np.clip(v_term * (1 - p_ratio), 0, 1e7))
+    # 4. PREDICTION: Acoustic Load (dB)
+    R_spec = 518.6
+    v_term = (2 * gamma_eff * R_spec * temp) / g_minus_1
+    p_ratio_base = np.clip(1.05 / np.maximum(p_decay, 1.06), 0.0001, 0.999)
+    v_exit = np.sqrt(np.clip(v_term * (1 - np.power(p_ratio_base, p_exp)), 0, 1e7))
     acoustic_db = 120 + 10 * np.log10(np.clip((v_exit**8) / 1e12, 1.0, 1e20))
     
-    # 5. JDD SUSTAINABILITY (Hardened against ValueError)
+    # 5. JDD SUSTAINABILITY (Transpiration)
     theta_rad = np.radians(jdd_theta)
     thermal_lag = 1.0 / (1.0 + (0.015 * max(0, cement_depth)))
-    turb_factor = 1.15 if ld_ratio < 2.5 else 1.0
-    
-    # Predict required water to sustain impingement point
-    # np.sin and multipliers are wrapped to ensure finite output
-    req_cooling_lps = np.clip(((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_lag * turb_factor, 0.001, 1000)
-    
+    req_cooling_lps = np.clip(((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_lag, 0.001, 1000)
     actual_lps = float(h2o_lpm) / 60.0 if jdd_type == "Metallic Plate (Transpiration)" else 0.0
-    
-    # Calculation for MoS Sustainability Corridor
-    mos = (actual_lps / req_cooling_lps) - 1.0 if jdd_type == "Metallic Plate (Transpiration)" else 1.0
-
-    # Mach Prediction
-    mach_num = np.sqrt(np.clip((2 / g_minus_1) * (np.power(p_init / 1.01325, p_exp) - 1), 0, 10))
+    mos = (actual_lps / req_cooling_lps) - 1.0
 
     return pd.DataFrame({
         "Sec": t_steps,
+        "Throat Erosion (mm)": np.round(cumulative_erosion, 3),
         "Pressure (Bar)": np.round(p_decay, 2),
-        "Mach Number": np.round(mach_num - (t_steps * 0.01), 3),
-        "Acoustic Load (dB)": np.round(acoustic_db - (t_steps * 0.2), 1),
-        "Req. Water (L/s)": np.round(req_cooling_lps, 2),
+        "Mach Number": np.round(mach_num, 3),
+        "Acoustic Load (dB)": np.round(acoustic_db, 1),
         "Sustainability (MoS)": np.round(mos, 3)
-    }), gamma_eff, required_web, grain_length, gox_flow
+    }), cumulative_erosion[-1]
 
 # --- FACILITY INTERFACE ---
 st.title("🚀 V-MAX Omni-Twin: Supreme All-In-One Master")
-st.markdown("**Developer:** R. Puneesh kumar | **Status:** Hyper-Hardened Deployment")
+st.markdown("**Developer:** R. Puneesh kumar | **Status:** Hyper-Hardened Erosion Mode")
 
 with st.sidebar:
-    st.header("1. HGG Design (L/D Optimization)")
+    st.header("1. HGG Design (Throat & L/D)")
+    t_dia = st.number_input("Initial Throat Dia (mm)", 5.0, 50.0, 12.0)
     ld = st.slider("L/D Ratio", 1.5, 6.0, 3.5)
     t_in = st.slider("Chamber Temp (K)", 1500, 3500, 3032)
     p_in = st.slider("Initial Pressure (Bar)", 10, 80, 35)
-    st.header("2. Material Sustenance")
-    grain_user = st.slider("Paraffin Initial Web (mm)", 10, 60, 30)
+    st.header("2. Material Sustainability")
     jdd_mat = st.selectbox("Impingement Surface", ["Metallic Plate (Transpiration)", "Pure Refractory Cement Wedge"])
     jdd_theta = st.slider("JDD Angle (°)", 15, 90, 35)
-    cement = st.slider("Refractory Depth (mm)", 0, 150, 100)
     water = st.number_input("Water Flow (LPM)", 100, 1500, 424)
     burn_dur = st.number_input("Burn Duration (s)", 5, 120, 20)
     st.success("Universal Master Mode: ACTIVE")
 
 # EXECUTE ENGINE
-df, g_calc, req_web, g_len, g_flow = run_vmax_final_master(t_in, p_in, burn_dur, water, grain_user, jdd_theta, cement, ld, jdd_mat)
+df, total_erosion = run_vmax_final_master(t_in, p_in, burn_dur, water, 30.0, jdd_theta, 100, ld, jdd_mat, t_dia)
 
 # --- PREDICTION DASHBOARD ---
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Predicted Mach", f"M {df['Mach Number'].max()}")
-c2.metric("Peak Acoustic", f"{df['Acoustic Load (dB)'].max()} dB")
-c3.metric("Min Wax Web", f"{req_web:.1f} mm")
-c4.metric("Peak GOx Flow", f"{g_flow:.2f} kg/s")
-
-# --- VISUALIZATION ---
-
-st.subheader(f"🔥 Realistic Firing: {jdd_mat} @ {jdd_theta}°")
-flame_scale = (p_in / 80) + 0.3
-fig_real = go.Figure()
-fig_real.add_trace(go.Scatter(x=[-0.3*flame_scale, 0.3*flame_scale, 1.2*flame_scale, -1.2*flame_scale], y=[1, 1, -2.5*flame_scale, -2.5*flame_scale], fill="toself", fillcolor='orange', opacity=0.7, name="Exhaust"))
-h_color = 'silver' if jdd_mat == "Metallic Plate (Transpiration)" else 'brown'
-fig_real.add_trace(go.Scatter(x=[-3, 3], y=[-3.5, -3.0], line=dict(color=h_color, width=12 + (cement/10)), name="Impingement Point"))
-if jdd_mat == "Metallic Plate (Transpiration)":
-    fig_real.add_trace(go.Scatter(x=np.linspace(-2.5, 2.5, 10), y=np.linspace(-3.5, -3.0, 10)+0.2, mode='markers', marker=dict(color='#00d4ff', size=10), name="Water Sustain"))
-fig_real.update_layout(xaxis=dict(range=[-4, 4], visible=False), yaxis=dict(range=[-6, 4], visible=False), height=400, template="plotly_dark")
-st.plotly_chart(fig_real, use_container_width=True)
+c1.metric("Total Throat Erosion", f"{total_erosion:.3f} mm")
+c2.metric("Peak Acoustic Load", f"{df['Acoustic Load (dB)'].max()} dB")
+c3.metric("Final Mach", f"M {df['Mach Number'].iloc[-1]}")
+c4.metric("Sustainability MoS", f"{df['Sustainability (MoS)'].iloc[-1]}")
 
 # --- ANALYTICS ---
 
 st.subheader("📈 Temporal Sensor Analytics")
 a1, a2, a3 = st.columns(3)
-with a1: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Pressure (Bar)'], line=dict(color='#ff4b4b', width=3))).update_layout(title="Chamber Pressure vs Time", template="plotly_dark"))
-with a2: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Acoustic Load (dB)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Acoustics (Lighthill's Law)", template="plotly_dark"))
+with a1: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Throat Erosion (mm)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Throat Erosion (mm)", template="plotly_dark"))
+with a2: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Pressure (Bar)'], line=dict(color='#ff4b4b', width=3))).update_layout(title="Pressure Decay", template="plotly_dark"))
 with a3: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Sustainability (MoS)'], fill='tozeroy', line=dict(color='#f0c14b'))).update_layout(title="Sustainability MoS", template="plotly_dark"))
 
 st.dataframe(df, use_container_width=True)
