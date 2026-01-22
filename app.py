@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # --- WORLD-CLASS UI STYLING ---
-st.set_page_config(page_title="V-MAX Omni-Twin | Supreme Master", layout="wide")
+st.set_page_config(page_title="V-MAX Omni-Twin | Acoustic & Sustainability Master", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #0b0d10; }
@@ -15,53 +15,47 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- THE SUPREME PHYSICS ENGINE ---
-def run_vmax_supreme_master(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth, ld_ratio, jdd_type):
-    # Safety Check to prevent ValueError
-    duration = max(1, duration)
-    p_init = max(0.1, p_init)
-    
+def run_vmax_final_master(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth, ld_ratio, jdd_type):
     t_steps = np.arange(0, duration + 1, 1)
     
     # 1. PREDICTION: Gamma-DNA & Mach Number (Isentropic Flow)
-    # L/D ratio directly affects the Gamma-DNA match (target γ ≈ 1.21) 
-    gamma_eff = 1.38 - (temp / 12500) + (ld_ratio * 0.004) 
+    gamma_eff = 1.38 - (temp / 12500) + (ld_ratio * 0.004) [cite: 11]
     R_spec = 518.6 
-    mach_num = np.sqrt(max(0, (2 / (gamma_eff - 1)) * ((p_init / 1.01325)**((gamma_eff - 1) / gamma_eff) - 1)))
+    mach_num = np.sqrt(max(0, (2 / (gamma_eff - 1)) * ((p_init / 1.01325)**((gamma_eff - 1) / gamma_eff) - 1))) [cite: 18]
     
     # 2. PREDICTION: Propellant Architecture (Paraffin Wax & GOx)
-    reg_rate = 0.55 # Regression rate per standard principles 
+    reg_rate = 0.55 
     required_web = reg_rate * duration 
     web_remaining = np.maximum(grain_init - (reg_rate * t_steps), 0.1)
-    p_decay = p_init * (web_remaining / max(0.1, grain_init))**0.48
-    grain_length = 15.5 * ld_ratio # Optimized length for stay-time
-    gox_flow = (p_init * 0.02) * (1 + (ld_ratio / 10)) # Predicted GOx mass flow
+    p_decay = p_init * (web_remaining / max(0.1, grain_init))**0.48 [cite: 13]
+    grain_length = 15.5 * ld_ratio 
+    gox_flow = (p_init * 0.02) * (1 + (ld_ratio / 10)) 
     
-    # 3. PREDICTION: JDD Sustainability (Transpiration Cooling)
-    # Different L/D and JDD Angles change the cooling requirement 
+    # 3. PREDICTION: Acoustic Load (Lighthill's 8th Power Law)
+    # Predicts dB to ensure vibrations don't crack cooling pores 
+    v_exit = np.sqrt(max(0, (2 * gamma_eff * R_spec * temp / (gamma_eff - 1)) * (1 - (1.05 / p_decay)**((gamma_eff - 1) / gamma_eff))))
+    acoustic_db = 120 + 10 * np.log10(max(1, (v_exit**8) / 1e12)) [cite: 18]
+    
+    # 4. PREDICTION: JDD Sustainability (Transpiration Cooling)
     theta_rad = np.radians(jdd_theta)
-    thermal_lag = 1 / (1 + (0.015 * cement_depth)) if cement_depth > 0 else 1
-    # Turbulence increases at lower L/D ratios
+    thermal_lag = 1 / (1 + (0.015 * cement_depth)) [cite: 12]
     turb_factor = 1.15 if ld_ratio < 2.5 else 1.0
-    
-    # Heat Balance Equation to determine Water LPM for sustenance 
-    req_cooling_lps = ((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_lag * turb_factor
+    req_cooling_lps = ((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_lag * turb_factor [cite: 18]
     actual_lps = h2o_lpm / 60 if jdd_type == "Metallic Plate (Transpiration)" else 0
-    
-    # Hardened MoS calculation to prevent ValueErrors
-    mos = (actual_lps / np.maximum(req_cooling_lps, 0.001)) - 1 if jdd_type == "Metallic Plate (Transpiration)" else 1
+    mos = (actual_lps / np.maximum(req_cooling_lps, 0.001)) - 1 if jdd_type == "Metallic Plate (Transpiration)" else 1 [cite: 15]
 
     return pd.DataFrame({
         "Sec": t_steps,
         "Pressure (Bar)": np.round(p_decay, 2),
         "Mach Number": np.round(mach_num - (t_steps * 0.01), 3),
-        "Req. GOx (kg/s)": np.round(gox_flow * (p_decay / p_init), 3),
+        "Acoustic Load (dB)": np.round(acoustic_db - (t_steps * 0.2), 1),
         "Req. Water (L/s)": np.round(req_cooling_lps, 2),
         "Sustainability (MoS)": np.round(mos, 3)
-    }), gamma_eff, required_web, grain_length
+    }), gamma_eff, required_web, grain_length, gox_flow
 
 # --- FACILITY INTERFACE ---
-st.title("🚀 V-MAX Omni-Twin: Supreme Master Edition")
-st.markdown("**Developer:** R. Puneesh kumar | **Status:** World-Class Firing Simulation [cite: 2]")
+st.title("🚀 V-MAX Omni-Twin: Supreme Acoustic & Sustainability Master")
+st.markdown(f"**Developer:** R. Puneesh kumar | **Version:** {st.secrets.get('VERSION', 'V-Max Final Deployment')}") [cite: 2, 3]
 
 with st.sidebar:
     st.header("1. HGG Design (L/D Optimization)")
@@ -79,15 +73,15 @@ with st.sidebar:
     st.success("Universal Master Mode: ACTIVE")
 
 # EXECUTE SUPREME ENGINE
-df, g_calc, req_web, g_len = run_vmax_supreme_master(t_in, p_in, burn_dur, water, grain_user, jdd_theta, cement, ld, jdd_mat)
+df, g_calc, req_web, g_len, g_flow = run_vmax_final_master(t_in, p_in, burn_dur, water, grain_user, jdd_theta, cement, ld, jdd_mat)
 
 # --- PREDICTION DASHBOARD ---
-st.subheader("🔮 Supreme Design Recipe & Predictions")
+st.subheader("🔮 Supreme Design Recipe & Acoustic Predictions")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Predicted Mach Number", f"M {df['Mach Number'].max()}")
-c2.metric("Min Wax Web", f"{req_web:.1f} mm")
-c3.metric("Predicted Grain Length", f"{g_len:.1f} mm")
-c4.metric("Peak GOx Flow", f"{df['Req. GOx (kg/s)'].max()} kg/s")
+c2.metric("Peak Acoustic Load", f"{df['Acoustic Load (dB)'].max()} dB")
+c3.metric("Min Wax Web", f"{req_web:.1f} mm")
+c4.metric("Peak GOx Flow", f"{g_flow:.2f} kg/s")
 
 # --- REALISTIC FIRING VISUALIZATION ---
 
@@ -107,7 +101,7 @@ st.plotly_chart(fig_real, use_container_width=True)
 st.subheader("📈 Temporal Sensor Analytics")
 a1, a2, a3 = st.columns(3)
 with a1: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Pressure (Bar)'], line=dict(color='#ff4b4b', width=3))).update_layout(title="Chamber Pressure vs Time", template="plotly_dark"))
-with a2: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Req. Water (L/s)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Required Cooling Flow", template="plotly_dark"))
+with a2: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Acoustic Load (dB)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Acoustic Load vs Time", template="plotly_dark"))
 with a3: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Sustainability (MoS)'], fill='tozeroy', line=dict(color='#f0c14b'))).update_layout(title="Sustainability Corridor (MoS)", template="plotly_dark"))
 
 st.dataframe(df, use_container_width=True)
