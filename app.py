@@ -105,3 +105,32 @@ with adv2:
         st.warning(f"⚠️ Vector Impact: At {jdd_tilt}°, back-pressure may destabilize transpiration cooling.")
     else:
         st.success("✅ Plume Clearance: Ground interaction within safe thermal dissipation limits.")
+# --- 6. ELITE POST-TEST ANALYSIS & LEARNING ---
+st.divider()
+st.header("🧠 Post-Test Analysis (The Learning Brain)")
+st.write("Enter real-world data from your sensors to 'teach' the model.")
+
+col_input, col_analysis = st.columns(2)
+
+with col_input:
+    actual_press = st.number_input("Measured Peak Pressure (Bar)", value=0.0)
+    actual_temp = st.number_input("Measured Exhaust Temp (K)", value=0.0)
+    actual_erosion = st.number_input("Measured Throat Growth (mm)", value=0.0)
+
+if actual_press > 0:
+    # Calculate Error Percentages
+    p_err = ((actual_press - p_init) / p_init) * 100
+    t_err = ((actual_temp - t_goal) / t_goal) * 100
+    
+    with col_analysis:
+        st.subheader("📊 Model Accuracy Report")
+        st.metric("Pressure Accuracy", f"{100 - abs(p_err):.1f}%")
+        st.metric("Thermal Accuracy", f"{100 - abs(t_err):.1f}%")
+        
+        if abs(p_err) > 15:
+            st.error("⚠️ HIGH DEVIATION: Check for fuel grain inconsistencies or GOx leak.")
+        else:
+            st.success("🎯 MODEL VALIDATED: The Guru's physics match your hardware.")
+
+        # Suggesting a "Correction Factor" for next time
+        st.info(f"**Guru Strategy:** Adjust Paraffin regression coefficient by {abs(p_err/2):.2f}% for the next run.")
