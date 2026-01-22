@@ -16,14 +16,14 @@ st.markdown("""
 
 # --- THE SUPREME PHYSICS ENGINE ---
 def run_vmax_final_master(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth, ld_ratio, jdd_type):
-    # HARDENED INPUTS: Prevent division by zero or negative domains
+    # HARDENED BOUNDARIES: Prevents division by zero or negative domains
     duration = max(1, int(duration))
-    p_init = max(1.0, p_init)
+    p_init = max(1.1, p_init)
     t_steps = np.arange(0, duration + 1, 1)
     
     # 1. Prediction: Gamma-DNA Match (Target γ ≈ 1.21)
     # L/D ratio directly affects Stay Time and combustion efficiency
-    gamma_eff = max(1.1, 1.38 - (temp / 12500) + (ld_ratio * 0.004))
+    gamma_eff = max(1.15, 1.38 - (temp / 12500) + (ld_ratio * 0.004))
     R_spec = 518.6 
     
     # 2. Prediction: Propellant Architecture (Paraffin & GOx)
@@ -34,24 +34,29 @@ def run_vmax_final_master(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta
     grain_length = 15.5 * ld_ratio 
     gox_flow = (p_init * 0.02) * (1 + (ld_ratio / 10)) 
     
-    # 3. Prediction: Acoustic Load (Lighthill's Law) - HARDENED AGAINST VALUEERROR
-    # Guarding against division by zero in (gamma_eff - 1) and negative powers
-    v_term = (2 * gamma_eff * R_spec * temp) / max(0.001, gamma_eff - 1)
-    p_exp = max(0.001, (gamma_eff - 1) / gamma_eff)
-    p_ratio = (1.05 / np.maximum(p_decay, 1.06))**p_exp
+    # 3. Prediction: Acoustic Load (Lighthill's Law) - FULLY HARDENED
+    # Guarding (gamma - 1) and Power functions
+    g_term = max(0.01, gamma_eff - 1)
+    v_term = (2 * gamma_eff * R_spec * temp) / g_term
+    p_exp = g_term / gamma_eff
+    
+    # Ensure pressure ratio base is never zero or negative
+    p_ratio_base = 1.05 / np.maximum(p_decay, 1.1)
+    p_ratio = np.power(p_ratio_base, p_exp)
+    
     v_exit = np.sqrt(max(0, v_term * (1 - p_ratio)))
     acoustic_db = 120 + 10 * np.log10(max(1, (v_exit**8) / 1e12))
     
     # 4. Prediction: JDD Sustainability (Transpiration Cooling)
-    # Links Angle and Water Flow through metallic plate holes
     theta_rad = np.radians(jdd_theta)
-    thermal_lag = 1 / (1 + (0.015 * cement_depth)) # 100mm refractory lag effect
+    thermal_lag = 1 / (1 + (0.015 * cement_depth))
     turb_factor = 1.15 if ld_ratio < 2.5 else 1.0
     req_cooling_lps = ((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_lag * turb_factor
+    
     actual_lps = h2o_lpm / 60 if jdd_type == "Metallic Plate (Transpiration)" else 0
     mos = (actual_lps / max(0.001, req_cooling_lps)) - 1 if jdd_type == "Metallic Plate (Transpiration)" else 1
 
-    mach_num = np.sqrt(max(0, (2 / (gamma_eff - 1)) * ((p_init / 1.01325)**p_exp - 1)))
+    mach_num = np.sqrt(max(0, (2 / g_term) * (np.power(p_init / 1.01325, p_exp) - 1)))
 
     return pd.DataFrame({
         "Sec": t_steps,
@@ -71,7 +76,7 @@ with st.sidebar:
     ld = st.slider("L/D Ratio", 1.5, 6.0, 3.5)
     t_in = st.slider("Chamber Temp (K)", 1500, 3500, 3032)
     p_in = st.slider("Initial Pressure (Bar)", 10, 80, 35)
-    st.header("2. JDD Material Sustenance")
+    st.header("2. Material Sustainability")
     grain_user = st.slider("Paraffin Initial Web (mm)", 10, 60, 30)
     jdd_mat = st.selectbox("Impingement Surface", ["Metallic Plate (Transpiration)", "Pure Refractory Cement Wedge"])
     jdd_theta = st.slider("JDD Angle (°)", 15, 90, 35)
@@ -104,11 +109,10 @@ fig_real.update_layout(xaxis=dict(range=[-4, 4], visible=False), yaxis=dict(rang
 st.plotly_chart(fig_real, use_container_width=True)
 
 # --- ANALYTICS ---
-
 st.subheader("📈 Temporal Sensor Analytics")
 a1, a2, a3 = st.columns(3)
 with a1: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Pressure (Bar)'], line=dict(color='#ff4b4b', width=3))).update_layout(title="Chamber Pressure vs Time", template="plotly_dark"))
-with a2: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Acoustic Load (dB)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Acoustics (Lighthill's Law)", template="plotly_dark"))
+with a2: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Acoustic Load (dB)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Acoustic Load vs Time", template="plotly_dark"))
 with a3: st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Sustainability (MoS)'], fill='tozeroy', line=dict(color='#f0c14b'))).update_layout(title="Sustainability MoS", template="plotly_dark"))
 
 st.dataframe(df, use_container_width=True)
