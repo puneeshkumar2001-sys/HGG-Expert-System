@@ -2,9 +2,14 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
 
-# --- 1. AEROSPACE-AMAZON UI STYLING ---
-st.set_page_config(page_title="V-MAX Super-Guru", layout="wide", page_icon="🚀")
+# --- 1. GLOBAL STYLING ---
+st.set_page_config(page_title="V-MAX Aerospace Guru", layout="wide", page_icon="🚀")
 
 st.markdown("""
     <style>
@@ -12,110 +17,103 @@ st.markdown("""
     [data-testid="stMetricValue"] { color: #f0c14b !important; font-weight: bold; font-size: 2.2rem; }
     [data-testid="stMetricLabel"] { color: #ffffff !important; }
     [data-testid="stMetric"] { background-color: #1c232d; padding: 20px; border-radius: 12px; border-bottom: 4px solid #f0c14b; }
-    h1, h2, h3, h4 { color: #f0c14b !important; font-family: 'Segoe UI'; }
-    div.stButton > button:first-child { background-color: #f0c14b; color: black; font-weight: bold; width: 100%; border-radius: 8px; }
+    h1, h2, h3, h4 { color: #f0c14b !important; }
+    div.stButton > button:first-child { background-color: #f0c14b; color: black; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. ADVANCED TRANSIENT PHYSICS ENGINE ---
-def run_super_vmax_logic(target_temp, target_mach, duration, w_cu_ratio, p_init, efficiency):
-    # Time-Step: Sec-to-Sec Analysis
-    t_steps = np.linspace(0, duration, int(duration) + 1)
+# --- 2. ADVANCED PHYSICS ENGINE (SEC-TO-SEC) ---
+def run_transient_physics(temp, mach, duration, p_init, w_cu_ratio):
+    t_steps = np.arange(0, duration + 1, 1) # Per-second steps
+    gamma = 1.21
     
-    # 1. Gamma Matching & Effective Area Ratio (Boundary Layer Loss)
-    gamma = 1.21 
-    term1 = (2 / (gamma + 1))
-    term2 = 1 + ((gamma - 1) / 2) * (target_mach**2)
-    power = (gamma + 1) / (2 * (gamma - 1))
-    ar_geometric = (1 / target_mach) * (term1 * term2)**power
-    ar_effective = ar_geometric * 0.98  # Capturing 2% Boundary Layer Displacement Loss
+    # Material Logic: W-Cu Erosion Factor
+    erosion_base = 0.05 if w_cu_ratio > 75 else 0.15
+    erosion_series = erosion_base * (temp / 3000) * (1 + 0.01 * t_steps)
     
-    # 2. Material Mixer Dynamics (W-Cu Pseudo-Alloy)
-    # W-Cu resists erosion better than pure metals. 
-    # W provides structure, Cu provides transpiration cooling through pores.
-    base_erosion = 0.05 if w_cu_ratio > 70 else 0.2
-    erosion_rate = base_erosion * (target_temp / 3000) * (1.1 - efficiency)
+    # Performance Decay
+    p_decay = p_init * np.exp(-0.005 * t_steps)
+    acoustic_load = 10 * np.log10((temp/10)**4) + 120 - (2 * t_steps) # Transient Acoustic Map
     
-    # 3. Sec-to-Sec Performance Decay
-    p_series = p_init * np.exp(-erosion_rate * 0.005 * t_steps)
-    flow_series = (p_series * (target_temp/400)) / 60 # Instantaneous L/s converted to LPM
+    # Area Ratio Adjusting for Boundary Layer (2% loss)
+    ar = ((1/mach) * ((2/(gamma+1))*(1+((gamma-1)/2)*mach**2))**((gamma+1)/(2*(gamma-1)))) * 0.98
     
-    return t_steps, p_series, flow_series, ar_effective, erosion_rate
+    return pd.DataFrame({
+        "Time (s)": t_steps,
+        "Pressure (Bar)": np.round(p_decay, 2),
+        "Acoustic Load (dB)": np.round(acoustic_load, 1),
+        "Erosion Rate (mm/s)": np.round(erosion_series, 4)
+    }), ar
 
-# --- 3. COMMAND & CONTROL SIDEBAR ---
+# --- 3. COMMAND SIDEBAR ---
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/rocket.png", width=70)
     st.title("V-MAX MISSION CONTROL")
-    t_goal = st.slider("Chamber Temp (K)", 1500, 3500, 3032) # From user screenshot
-    m_goal = st.slider("Target Mach", 0.5, 4.0, 1.25) # From user screenshot
-    p_start = st.slider("Chamber Pressure (Bar)", 10, 80, 35)
-    w_cu = st.slider("W-Cu Mixer Ratio (% Tungsten)", 50, 95, 75)
-    eff_c = st.slider("Combustion Efficiency (ηc)", 0.80, 1.0, 0.95)
+    t_goal = st.slider("Chamber Temp (K)", 1500, 3500, 3032)
+    m_goal = st.slider("Target Mach", 0.5, 4.0, 1.25)
+    p_start = st.slider("Initial Pressure (Bar)", 10, 80, 35)
+    w_cu = st.slider("W-Cu Mixer (% Tungsten)", 50, 95, 75)
     burn_time = st.number_input("Burn Duration (s)", 10, 300, 20)
-    st.divider()
-    st.info("Status: Multi-Physics Digital Twin Active")
 
-# Execute Calculations
-time, press, flow, ar_eff, e_rate = run_super_vmax_logic(t_goal, m_goal, burn_time, w_cu, p_start, eff_c)
+# Calculate Data
+df_results, ar_eff = run_transient_physics(t_goal, m_goal, burn_time, p_start, w_cu)
 
-# --- 4. THE ULTIMATE DASHBOARD ---
+# --- 4. DASHBOARD UI ---
 st.title("🚀 HGG-JDD V-MAX Master Guru")
-st.markdown("#### Aerospace Digital Twin: Transient Multi-Physics & Material Mixer Simulator")
+st.markdown("#### High-Fidelity Aerospace Digital Twin: Transient Multi-Physics")
 
-# Professional Metrics Bar (Visible Metrics Fix)
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Eff. Area Ratio", f"{ar_eff:.3f}") # Capturing Boundary Layer
-c2.metric("O/F Ratio (DNA)", f"{(1.0 + (t_goal-1500)/400):.2f}")
-c3.metric("Avg Coolant Flow", f"{np.mean(flow):.1f} LPM")
-c4.metric("Erosion Rate", f"{e_rate:.4f} mm/s")
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Eff. Area Ratio", f"{ar_eff:.3f}")
+m2.metric("O/F Ratio (DNA)", f"{(1.0 + (t_goal-1500)/400):.2f}")
+m3.metric("Peak Acoustic", f"{df_results['Acoustic Load (dB)'].max()} dB")
+m4.metric("Burn Status", "Transient Active")
 
 st.divider()
 
-# --- 5. SEC-TO-SEC TRANSIENT GRAPHS ---
-st.subheader("📊 Sec-to-Sec Performance Analysis")
-col_graph1, col_graph2 = st.columns(2)
-
-with col_graph1:
-    fig_p = go.Figure()
-    fig_p.add_trace(go.Scatter(x=time, y=press, mode='lines+markers', name='Pressure', line=dict(color='#f0c14b', width=3)))
-    fig_p.update_layout(title="Chamber Pressure Transient (Bar)", template="plotly_dark", xaxis_title="Time (s)", yaxis_title="Pressure (Bar)")
+# Sec-to-Sec Visuals
+c1, c2 = st.columns(2)
+with c1:
+    fig_p = go.Figure(data=go.Scatter(x=df_results['Time (s)'], y=df_results['Pressure (Bar)'], mode='lines+markers', line=dict(color='#f0c14b')))
+    fig_p.update_layout(title="Sec-to-Sec Pressure Decay", template="plotly_dark", xaxis_title="Time (s)", yaxis_title="Bar")
     st.plotly_chart(fig_p, use_container_width=True)
 
-with col_graph2:
-    fig_f = go.Figure()
-    fig_f.add_trace(go.Scatter(x=time, y=flow, mode='lines', fill='tozeroy', name='Coolant Flow', line=dict(color='#00d4ff')))
-    fig_f.update_layout(title="Coolant Flow Requirement (LPM)", template="plotly_dark", xaxis_title="Time (s)", yaxis_title="Flow (LPM)")
-    st.plotly_chart(fig_f, use_container_width=True)
+with c2:
+    fig_a = go.Figure(data=go.Scatter(x=df_results['Time (s)'], y=df_results['Acoustic Load (dB)'], mode='lines', fill='tozeroy', line=dict(color='#00d4ff')))
+    fig_a.update_layout(title="Sec-to-Sec Acoustic Fatigue Profile", template="plotly_dark", xaxis_title="Time (s)", yaxis_title="dB")
+    st.plotly_chart(fig_a, use_container_width=True)
 
-# --- 6. ADVANCED SAFETY CORRIDOR ---
+# --- 5. PDF REPORT GENERATOR ---
+def generate_pdf(data_df, temp, mach, ar):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Title & Header
+    story.append(Paragraph("ISRO-GRADE TECHNICAL REPORT: HGG-JDD V-MAX", styles['Title']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Mission Parameters:</b> Temp: {temp}K | Mach: {mach} | Eff. AR: {ar:.3f}", styles['Normal']))
+    story.append(Spacer(1, 24))
+
+    # Data Table
+    table_data = [data_df.columns.tolist()] + data_df.values.tolist()
+    t = Table(table_data)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#f0c14b")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    story.append(t)
+    
+    doc.build(story)
+    return buffer.getvalue()
+
 st.divider()
-st.subheader("🗺️ Structural Safety Corridor (Material Strain & Hoop Stress)")
-p_grid, t_grid = np.meshgrid(np.linspace(10, 80, 20), np.linspace(1500, 3500, 20))
-# Logic: Yield strength drops as temperature increases
-z_risk = (p_grid * (t_grid/1000)**2) / (w_cu/10) 
-fig_map = go.Figure(data=go.Contour(z=z_risk, x=np.linspace(10, 80, 20), y=np.linspace(1500, 3500, 20), colorscale='Turbo'))
-fig_map.add_trace(go.Scatter(x=[p_start], y=[t_goal], mode='markers', marker=dict(size=20, color='white', symbol='star')))
-fig_map.update_layout(template="plotly_dark", xaxis_title="Pressure (Bar)", yaxis_title="Temp (K)")
-st.plotly_chart(fig_map, use_container_width=True)
-
-# --- 7. THE LEARNING BRAIN (POST-TEST) ---
-st.divider()
-st.subheader("🧠 Post-Test Digital Twin Calibration")
-actual_p = st.number_input("Enter Measured Peak Pressure from Sensors (Bar)", value=0.0)
-if actual_p > 0:
-    precision = 100 - abs(((actual_p - p_start)/p_start)*100)
-    st.metric("Model Precision", f"{precision:.2f}%")
-    st.success(f"Guru Learning: Calibration successful. Material constant adjusted based on W-Cu performance.")
-
-# --- 8. DOWNLOAD FINAL REPORT ---
-report_data = f"""V-MAX ISRO FINAL REPORT
--------------------------
-Target Temp: {t_goal} K
-W-Cu Mixer: {w_cu}% W
-Area Ratio: {ar_eff:.3f}
-Peak Pressure: {p_start} Bar
-Combustion Eff: {eff_c}
--------------------------
-VALIDATED PHYSICS: Isentropic Mach-Area, Barlow's Hoop Stress, W-Cu Transpiration.
-"""
-st.download_button("📥 Download Final Technical Report", data=report_data, file_name="ISRO_VMAX_Report.txt")
+pdf_data = generate_pdf(df_results, t_goal, m_goal, ar_eff)
+st.download_button(
+    label="📥 Download Professional Engineering PDF Report",
+    data=pdf_data,
+    file_name="VMAX_ISRO_Technical_Report.pdf",
+    mime="application/pdf"
+)
