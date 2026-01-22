@@ -9,7 +9,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
 # --- WORLD-CLASS UI STYLING ---
-st.set_page_config(page_title="V-MAX Omni-Twin | Final Aerospace Deployment", layout="wide")
+st.set_page_config(page_title="V-MAX Omni-Twin | Global Gold Standard", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #0b0d10; }
@@ -19,32 +19,31 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- THE ZERO-COMPROMISE PHYSICS ENGINE ---
+# --- PHYSICS ENGINE: THE "LEARNING BRAIN" ---
 def run_vmax_final_twin(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth):
     t_steps = np.arange(0, duration + 1, 1)
     
-    # 1. Real-Gas Variable Gamma (γ) Logic [cite: 11]
+    # 1. Gamma-DNA Matching [cite: 10, 11]
     gamma_eff = 1.38 - (temp / 12500)
     R_spec = 518.6 
     
-    # 2. Living Hardware: Ablation & Paraffin Regression [cite: 13]
-    reg_rate = 0.55 # mm/s
+    # 2. Ablative Morphing (Throat Expansion Logic) [cite: 12, 13]
+    reg_rate = 0.55 
     web_remaining = np.maximum(grain_init - (reg_rate * t_steps), 0)
-    # Pressure decay driven by geometric morphing
     p_decay = p_init * (web_remaining / grain_init)**0.48
     
-    # 3. Supersonic Exit Velocity (1.8% Viscous Correction) 
+    # 3. Isentropic Flow Theory: Supersonic Expansion 
     v_exit = np.sqrt((2 * gamma_eff * R_spec * temp / (gamma_eff - 1)) * (1 - (1.05 / p_decay)**((gamma_eff - 1) / gamma_eff)))
     v_exit_eff = v_exit * 0.982 
     
-    # 4. 100mm Refractory Lag & 35° Oblique Dynamics 
+    # 4. Heat Balance: Transpiration & 100mm Refractory
     theta_rad = np.radians(jdd_theta)
-    thermal_resistance = 1 / (1 + (0.015 * cement_depth)) # 100mm Thermal Storage logic
+    thermal_resistance = 1 / (1 + (0.015 * cement_depth)) 
     req_cooling_lps = ((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_resistance
     actual_lps = h2o_lpm / 60
-    mos = (actual_lps / req_cooling_lps) - 1 # Margin of Safety [cite: 15]
+    mos = (actual_lps / req_cooling_lps) - 1 # Margin of Safety 
     
-    # 5. Acoustic Load (Lighthill's Law) 
+    # 5. Acoustic Loading (Lighthill's Law) 
     acoustic_db = 120 + 10 * np.log10(p_decay**2 + 1)
     
     return pd.DataFrame({
@@ -57,7 +56,13 @@ def run_vmax_final_twin(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, 
 
 # --- FACILITY INTERFACE ---
 st.title("🚀 V-MAX Omni-Twin: Final Aerospace Expert System")
-st.markdown("#### Developer: R. Puneesh kumar | Version: V-Max Final Deployment")
+st.markdown(f"**Developer:** R. Puneesh kumar [cite: 2] | **Version:** {st.secrets.get('VERSION', 'V-Max Final')}")
+
+# --- REPORT CONSTANTS SECTION ---
+with st.expander("📖 View Executive Summary Constants (Based on Technical Report)"):
+    st.write("**Elite Pillar 1:** Gamma-DNA Matching targets ~1.21 for high-fidelity expansion[cite: 11].")
+    st.write("**Elite Pillar 2:** Real-Time Ablative Morphing predicts throat expansion[cite: 12, 13].")
+    st.write("**Elite Pillar 3:** High-Resolution Spatial Mapping identifies Hot Spots[cite: 14].")
 
 with st.sidebar:
     st.header("1. HGG Propulsion")
@@ -74,7 +79,21 @@ with st.sidebar:
 
 df, g_calc = run_vmax_final_twin(t_in, p_in, burn, water, grain, jdd_angle, cement)
 
-# --- GLOBAL PERFORMANCE DASHBOARD ---
+# --- VISUAL FIRING INDICATOR (THE "FLAME") ---
+st.subheader("🔥 Real-Time Motor Firing Visualization")
+flame_intensity = p_in / 80
+fig_flame = go.Figure()
+# Nozzle shape
+fig_flame.add_trace(go.Scatter(x=[-1, 1, 0.5, -0.5, -1], y=[2, 2, 1, 1, 2], fill="toself", fillcolor='gray', line=dict(color='black'), name="W-Cu Mixer"))
+# Dynamic Plume
+fig_flame.add_trace(go.Scatter(x=[-0.4*flame_intensity, 0.4*flame_intensity, 1.2*flame_intensity, -1.2*flame_intensity, -0.4*flame_intensity], 
+                               y=[1, 1, -2*flame_intensity, -2*flame_intensity, 1], fill="toself", 
+                               fillcolor='orange', opacity=0.8, line=dict(color='red'), name="Exhaust Plume"))
+fig_flame.update_layout(xaxis=dict(range=[-3, 3], visible=False), yaxis=dict(range=[-4, 3], visible=False), 
+                        height=300, margin=dict(l=0, r=0, t=0, b=0), template="plotly_dark", showlegend=False)
+st.plotly_chart(fig_flame, use_container_width=True)
+
+# --- PERFORMANCE DASHBOARD ---
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Gamma-DNA (γ)", f"{g_calc:.3f}")
 c2.metric("Max Velocity", f"{df['Velocity (m/s)'].max()} m/s")
@@ -88,12 +107,10 @@ st.subheader("📈 Independent Sensor Analytics Suite")
 r1, r2 = st.columns(2)
 with r1:
     st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Pressure (Bar)'], line=dict(color='#ff4b4b', width=3))).update_layout(title="Chamber Pressure (Ablative Morphing)", template="plotly_dark", yaxis_title="Bar"))
-    st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Acoustic (dB)'], line=dict(color='#00d4ff', width=3))).update_layout(title="Acoustic Loading (Lighthill's Law)", template="plotly_dark", yaxis_title="dB"))
 with r2:
-    st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Velocity (m/s)'], line=dict(color='#32cd32', width=3))).update_layout(title="Exit Velocity (Isentropic Flow)", template="plotly_dark", yaxis_title="m/s"))
     st.plotly_chart(go.Figure(go.Scatter(x=df['Sec'], y=df['Safety Margin (MoS)'], fill='tozeroy', line=dict(color='#f0c14b'))).update_layout(title="Global Structural Margin of Safety (MoS)", template="plotly_dark", yaxis_title="Ratio"))
 
-# PDF EXPORT ENGINE [cite: 2]
+# PDF EXPORT ENGINE
 def generate_pdf(data_df):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
