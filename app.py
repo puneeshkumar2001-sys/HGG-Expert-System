@@ -3,9 +3,13 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import io
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
 
 # --- WORLD-CLASS UI STYLING ---
-st.set_page_config(page_title="V-MAX Omni-Twin | Final Aerospace Deployment", layout="wide")
+st.set_page_config(page_title="V-MAX Omni-Twin | Sustainability Final", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #0b0d10; }
@@ -16,29 +20,25 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- THE SUPREME PHYSICS ENGINE ---
-# Grounded in Isentropic Flow Theory and Heat Balance Equations
 def run_vmax_final_twin(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, cement_depth):
     t_steps = np.arange(0, duration + 1, 1)
     
     # 1. Gamma-DNA Matching (Real-Gas Correction)
-    # Targets gamma approx 1.21 for methane-oxygen expansion
     gamma_eff = 1.38 - (temp / 12500)
     R_spec = 518.6 
     
     # 2. Living Hardware: Ablative Morphing
-    # Predicts throat expansion and resulting pressure decay
     reg_rate = 0.55 
     web_remaining = np.maximum(grain_init - (reg_rate * t_steps), 0)
     p_decay = p_init * (web_remaining / grain_init)**0.48
     
-    # 3. Supersonic Exit Velocity (Isentropic Flow Correction)
+    # 3. Supersonic Exit Velocity (1.8% Viscous Correction)
     v_exit = np.sqrt((2 * gamma_eff * R_spec * temp / (gamma_eff - 1)) * (1 - (1.05 / p_decay)**((gamma_eff - 1) / gamma_eff)))
     v_exit_eff = v_exit * 0.982 
     
     # 4. Sec-to-Sec Sustainability & 100mm Refractory Lag
-    # Uses Heat Balance Equation to determine Water LPM
     theta_rad = np.radians(jdd_theta)
-    thermal_resistance = 1 / (1 + (0.015 * cement_depth)) # 100mm depth effect
+    thermal_resistance = 1 / (1 + (0.015 * cement_depth)) 
     req_cooling_lps = ((p_decay * (temp / 1050) * np.sin(theta_rad)) / 1.08) * thermal_resistance
     actual_lps = h2o_lpm / 60
     mos = (actual_lps / req_cooling_lps) - 1 # Margin of Safety per second
@@ -52,8 +52,7 @@ def run_vmax_final_twin(temp, p_init, duration, h2o_lpm, grain_init, jdd_theta, 
     }), gamma_eff
 
 # --- FACILITY INTERFACE ---
-st.title("🚀 V-MAX Omni-Twin: Final Master Deployment")
-# Fixed Developer and Version strings to avoid NameError
+st.title("🚀 V-MAX Omni-Twin: Sustainability Master Guru")
 st.markdown("**Developer:** R. Puneesh kumar | **Version:** V-Max (Final Aerospace Deployment)")
 
 with st.sidebar:
@@ -73,10 +72,27 @@ with st.sidebar:
 df, g_calc = run_vmax_final_twin(t_in, p_in, burn, water, grain_in, jdd_angle, cement)
 
 # --- DYNAMIC FIRING VISUALIZATION ---
-# Visualizes High-Resolution Spatial Mapping and plume interaction
 st.subheader("🔥 Dynamic Plume Firing Visualization")
 flame_intensity = p_in / 80
 fig_fire = go.Figure()
+fig_fire.add_trace(go.Scatter(x=[-1, 1, 0.5, -0.5, -1], y=[2, 2, 1, 1, 2], fill="toself", fillcolor='gray', line=dict(color='black'), name="Mixer"))
+fig_fire.add_trace(go.Scatter(x=[-0.3*flame_intensity, 0.3*flame_intensity, 1.5*flame_intensity, -1.5*flame_intensity, -0.3*flame_intensity], 
+                              y=[1, 1, -3*flame_intensity, -3*flame_intensity, 1], fill="toself", 
+                              fillcolor='orange', opacity=0.8, line=dict(color='red'), name="Plume"))
+fig_fire.add_trace(go.Scatter(x=[-3, 3, 3, -3], y=[-3.5, -3, -3, -3.5], fill="toself", fillcolor='brown', name="100mm Wedge"))
+fig_fire.update_layout(xaxis=dict(range=[-4, 4], visible=False), yaxis=dict(range=[-5, 3], visible=False), 
+                       height=350, margin=dict(l=0, r=0, t=0, b=0), template="plotly_dark", showlegend=False)
+st.plotly_chart(fig_fire, use_container_width=True)
 
-# Nozzle Body (W-Cu Mixer)
-fig_fire.add_trace(go.Scatter(x=[-1, 1
+# --- PERFORMANCE DASHBOARD ---
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Gamma-DNA (γ)", f"{g_calc:.3f}")
+c2.metric("Max Velocity", f"{df['Velocity (m/s)'].max()} m/s")
+c3.metric("Peak Flow Needed", f"{df['Req. Coolant (L/s)'].max()} L/s")
+c4.metric("Min Safety Margin", f"{df['Sustainability (MoS)'].min():.2%}")
+
+st.divider()
+
+# --- SEC-TO-SEC SUSTAINABILITY MATRIX ---
+st.subheader("📊 Sec-to-Sec Sustainability Matrix")
+st.dataframe(df, use_container_width=True)
