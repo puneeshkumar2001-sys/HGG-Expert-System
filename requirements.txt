@@ -5,3 +5,5 @@ plotly
 reportlab
 scipy
 fpdf
+datetime
+warnings
