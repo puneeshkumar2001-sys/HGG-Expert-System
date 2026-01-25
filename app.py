@@ -85,15 +85,15 @@ if st.sidebar.button("🚀 EXECUTE FULL MISSION ANALYSIS"):
 
     pdf_out = BytesIO()
     pdf.output(pdf_out)
-    # --- CORRECTED PDF DOWNLOAD LOGIC ---
-    # 1. Capture the PDF as a string (dest='S')
-    # 2. Encode to latin-1 to create a byte-stream
-    # 3. Use BytesIO to make it a downloadable object
-    pdf_output = pdf.output(dest='S').encode('latin-1')
-    
-    st.download_button(
-        label="📄 DOWNLOAD FULL MASTER REPORT",
-        data=pdf_output,
-        file_name="V-MAX_Sovereign_Master_Report.pdf",
-        mime="application/pdf"
-    )
+# --- CORRECTED DOWNLOAD LOGIC ---
+# 1. Output the PDF as a raw string (dest='S')
+# 2. Encode to 'latin-1' to handle byte conversion
+# 3. Deliver via Streamlit download button
+pdf_bytes = pdf.output(dest='S').encode('latin-1')
+
+st.download_button(
+    label="📄 DOWNLOAD FULL MASTER REPORT",
+    data=pdf_bytes,
+    file_name="V-MAX_Sovereign_Master_Report.pdf",
+    mime="application/pdf"
+)
